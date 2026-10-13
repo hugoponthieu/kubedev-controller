@@ -3,7 +3,7 @@ use kube::{Resource, ResourceExt};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::project::{Project, ProjectSpec};
+use crate::project::Project;
 use crate::project_puller::ProjectPullerError;
 use crate::state::ControllerState;
 
@@ -26,13 +26,13 @@ pub async fn reconcile(
         .expect("Project must have a UID");
     if !ctx
         .project_puller
-        .check_pulling_job(&namespace, &project_name)
+        .pulling_job_exists(&namespace, &project_name)
         .await
         .map_err(ReconcileError::PullProject)?
     {
         ctx.project_puller
             .pull(
-                ProjectSpec::default(),
+                project.spec.clone(),
                 &project_name,
                 &namespace,
                 owner_reference,

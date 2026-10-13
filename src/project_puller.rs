@@ -1,7 +1,7 @@
 use k8s_openapi::{
     api::{
         batch::v1::{Job, JobSpec},
-        core::v1::{Container, PodSpec, PodTemplateSpec},
+        core::v1::{Container, EnvVar, PodSpec, PodTemplateSpec},
     },
     apimachinery::pkg::apis::meta::v1::OwnerReference,
 };
@@ -15,6 +15,36 @@ use crate::project::ProjectSpec;
 pub struct ProjectPuller {
     client: Client,
 }
+
+const SCRIPT: &str = r#"
+: "${REPOSITORY_URL:?REPOSITORY_URL is required}"
+
+REVISION="${REVISION:-main}"
+TARGET_DIR="${TARGET_DIR:-/workspace/repository}"
+
+mkdir -p "$(dirname "$TARGET_DIR")"
+
+if [ -d "$TARGET_DIR/.git" ]; then
+  echo "Updating existing repository"
+  git -C "$TARGET_DIR" remote set-url origin "$REPOSITORY_URL"
+else
+  echo "Initializing repository"
+  rm -rf "$TARGET_DIR"
+  mkdir -p "$TARGET_DIR"
+  git -C "$TARGET_DIR" init
+  git -C "$TARGET_DIR" remote add origin "$REPOSITORY_URL"
+fi
+
+git -C "$TARGET_DIR" fetch --depth=1 origin "$REVISION"
+git -C "$TARGET_DIR" checkout --detach --force FETCH_HEAD
+git -C "$TARGET_DIR" clean -ffd
+
+COMMIT_SHA="$(git -C "$TARGET_DIR" rev-parse HEAD)"
+printf '%s\n' "$COMMIT_SHA" > "$TARGET_DIR/.clone-complete.tmp"
+mv "$TARGET_DIR/.clone-complete.tmp" "$TARGET_DIR/.clone-complete"
+
+echo "Repository ready at commit $COMMIT_SHA"
+"#;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ProjectPullerError {
@@ -31,7 +61,7 @@ impl ProjectPuller {
 
     pub async fn pull(
         &self,
-        _project: ProjectSpec,
+        project: ProjectSpec,
         project_name: &str,
         namespace: &str,
         owner_reference: OwnerReference,
@@ -44,7 +74,7 @@ impl ProjectPuller {
             },
             &Job {
                 metadata: ObjectMeta {
-                    name: Some(format!("{}-puller", project_name)),
+                    name: Some(project_name.to_string()),
                     owner_references: Some(vec![owner_reference]),
                     ..Default::default()
                 },
@@ -55,7 +85,25 @@ impl ProjectPuller {
                             containers: vec![Container {
                                 image: Some("alpine/git:latest".to_string()),
                                 name: "puller".to_string(),
-                                command: Some(vec!["date".to_string()]),
+                                command: Some(vec!["/bin/sh".to_string()]),
+                                args: Some(vec!["-ec".to_string(), SCRIPT.to_string()]),
+                                env: Some(vec![
+                                    EnvVar {
+                                        name: "REPOSITORY_URL".to_string(),
+                                        value: Some(project.project_url),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "REVISION".to_string(),
+                                        value: Some(project.revision),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "TARGET_DIR".to_string(),
+                                        value: Some("/workspace/repository".to_string()),
+                                        ..Default::default()
+                                    },
+                                ]),
                                 ..Default::default()
                             }],
                             ..Default::default()
@@ -72,7 +120,7 @@ impl ProjectPuller {
         Ok(())
     }
 
-    pub async fn check_pulling_job(
+    pub async fn pulling_job_exists(
         &self,
         namespace: &str,
         project_name: &str,
@@ -82,6 +130,6 @@ impl ProjectPuller {
             .get_opt(project_name)
             .await
             .map_err(ProjectPullerError::Check)?
-            .is_none())
+            .is_some())
     }
 }
