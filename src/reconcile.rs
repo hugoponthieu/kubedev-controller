@@ -24,22 +24,15 @@ pub async fn reconcile(
     let owner_reference = project
         .controller_owner_ref(&())
         .expect("Project must have a UID");
-    if !ctx
-        .project_puller
-        .pulling_job_exists(&namespace, &project_name)
+    ctx.project_puller
+        .pull(
+            project.spec.clone(),
+            &project_name,
+            &namespace,
+            owner_reference,
+        )
         .await
-        .map_err(ReconcileError::PullProject)?
-    {
-        ctx.project_puller
-            .pull(
-                project.spec.clone(),
-                &project_name,
-                &namespace,
-                owner_reference,
-            )
-            .await
-            .map_err(ReconcileError::PullProject)?;
-    }
+        .map_err(ReconcileError::PullProject)?;
     println!("reconcile request: {}", project.name_any());
     Ok(Action::await_change())
 }

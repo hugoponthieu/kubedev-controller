@@ -3,5 +3,5 @@ kind: Project
 metadata:
   name: mon-projet
 spec:
-  project_url: https://github.com/example/repository.git
+  project_url: https://github.com/hugoponthieu/hardy.git
   revision: main
