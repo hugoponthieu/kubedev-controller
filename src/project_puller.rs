@@ -1,6 +1,9 @@
-use k8s_openapi::api::{
-    batch::v1::{Job, JobSpec},
-    core::v1::{Container, PodSpec, PodTemplateSpec},
+use k8s_openapi::{
+    api::{
+        batch::v1::{Job, JobSpec},
+        core::v1::{Container, PodSpec, PodTemplateSpec},
+    },
+    apimachinery::pkg::apis::meta::v1::OwnerReference,
 };
 use kube::{
     Api, Client,
@@ -16,7 +19,9 @@ pub struct ProjectPuller {
 #[derive(thiserror::Error, Debug)]
 pub enum ProjectPullerError {
     #[error("Failed to create job: {0}")]
-    JobCreationError(#[from] kube::Error),
+    JobCreation(kube::Error),
+    #[error("Failure while checking a job: {0}")]
+    Check(kube::Error),
 }
 
 impl ProjectPuller {
@@ -29,6 +34,7 @@ impl ProjectPuller {
         _project: ProjectSpec,
         project_name: &str,
         namespace: &str,
+        owner_reference: OwnerReference,
     ) -> Result<(), ProjectPullerError> {
         let jobs = Api::<Job>::namespaced(self.client.clone(), namespace);
         jobs.create(
@@ -39,6 +45,7 @@ impl ProjectPuller {
             &Job {
                 metadata: ObjectMeta {
                     name: Some(format!("{}-puller", project_name)),
+                    owner_references: Some(vec![owner_reference]),
                     ..Default::default()
                 },
                 spec: Some(JobSpec {
@@ -61,7 +68,20 @@ impl ProjectPuller {
             },
         )
         .await
-        .map_err(ProjectPullerError::JobCreationError)?;
+        .map_err(ProjectPullerError::JobCreation)?;
         Ok(())
+    }
+
+    pub async fn check_pulling_job(
+        &self,
+        namespace: &str,
+        project_name: &str,
+    ) -> Result<bool, ProjectPullerError> {
+        let jobs = Api::<Job>::namespaced(self.client.clone(), namespace);
+        Ok(jobs
+            .get_opt(project_name)
+            .await
+            .map_err(ProjectPullerError::Check)?
+            .is_none())
     }
 }
