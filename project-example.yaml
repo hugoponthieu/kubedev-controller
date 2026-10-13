@@ -1,0 +1,7 @@
+apiVersion: kube.rs/v1
+kind: Project
+metadata:
+  name: mon-projet
+spec:
+  project_url: https://github.com/example/repository.git
+  revision: main
