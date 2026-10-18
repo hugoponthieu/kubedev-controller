@@ -1,16 +1,18 @@
 use k8s_openapi::{
     api::{
         apps::v1::{Deployment, DeploymentSpec},
-        batch::v1::{Job, JobSpec},
+        batch::v1::{Job, JobSpec, JobStatus},
         core::v1::{
             Container, ContainerPort, EnvVar, PersistentVolumeClaim, PersistentVolumeClaimSpec,
             PersistentVolumeClaimVolumeSource, PodSpec, PodTemplateSpec, Service, ServicePort,
             ServiceSpec, Volume, VolumeMount, VolumeResourceRequirements,
         },
     },
-    apimachinery::pkg::api::resource::Quantity,
-    apimachinery::pkg::apis::meta::v1::{LabelSelector, OwnerReference},
-    apimachinery::pkg::util::intstr::IntOrString,
+    apimachinery::pkg::{
+        api::resource::Quantity,
+        apis::meta::v1::{LabelSelector, OwnerReference},
+        util::intstr::IntOrString,
+    },
 };
 use kube::{
     Api, Client,
@@ -18,7 +20,10 @@ use kube::{
 };
 use std::collections::BTreeMap;
 
-use crate::{config::Config, project::ProjectSpec};
+use crate::{
+    config::Config,
+    project::{Project, ProjectSpec, ProjectStatus, PullState},
+};
 
 pub struct ProjectPuller {
     client: Client,
@@ -52,29 +57,52 @@ impl ProjectPuller {
         Self { client, config }
     }
 
+    pub async fn set_project_status(
+        &self,
+        project_name: &str,
+        namespace: &str,
+        project_status: ProjectStatus,
+    ) -> Result<Project, ProjectPullerError> {
+        let projects = Api::<Project>::namespaced(self.client.clone(), namespace);
+
+        let patch = serde_json::json!({
+            "status": project_status
+        });
+        let project = projects
+            .patch_status(project_name, &PatchParams::default(), &Patch::Merge(patch))
+            .await?;
+        Ok(project)
+    }
+
     pub async fn pull(
         &self,
         project: ProjectSpec,
         project_name: &str,
         namespace: &str,
         owner_reference: OwnerReference,
-    ) -> Result<(), ProjectPullerError> {
+    ) -> Result<ProjectStatus, ProjectPullerError> {
         let pvc_name = format!("{}-workspace", project_name);
 
         self.ensure_pvc(namespace, &pvc_name, owner_reference.clone())
             .await?;
-        self.ensure_job(
-            project,
-            project_name,
-            namespace,
-            &pvc_name,
-            owner_reference.clone(),
-        )
-        .await?;
+        let pull_state = self
+            .ensure_job(
+                project,
+                project_name,
+                namespace,
+                &pvc_name,
+                owner_reference.clone(),
+            )
+            .await?;
+        let project_status = ProjectStatus { pull_state };
+        self.set_project_status(project_name, namespace, project_status.clone())
+            .await?;
         self.ensure_workspace(project_name, namespace, &pvc_name, owner_reference.clone())
             .await?;
-        self.ensure_workspace_service(project_name, namespace, owner_reference)
-            .await
+        let _ = self
+            .ensure_workspace_service(project_name, namespace, owner_reference)
+            .await;
+        Ok(project_status)
     }
 
     async fn ensure_pvc(
@@ -119,6 +147,24 @@ impl ProjectPuller {
         }
     }
 
+    fn get_job_state_from_status(job_status: JobStatus) -> PullState {
+        if let Some(n_failed) = job_status.succeeded
+            && n_failed > 0
+        {
+            PullState::Pulled
+        } else if let Some(n_active) = job_status.active
+            && n_active > 0
+        {
+            PullState::Pulling
+        } else if let Some(n_failed) = job_status.failed
+            && n_failed > 0
+        {
+            PullState::Failed
+        } else {
+            PullState::Unknown
+        }
+    }
+
     async fn ensure_job(
         &self,
         project: ProjectSpec,
@@ -126,11 +172,13 @@ impl ProjectPuller {
         namespace: &str,
         pvc_name: &str,
         owner_reference: OwnerReference,
-    ) -> Result<(), ProjectPullerError> {
+    ) -> Result<PullState, ProjectPullerError> {
         let jobs = Api::<Job>::namespaced(self.client.clone(), namespace);
 
-        if jobs.get_opt(project_name).await?.is_some() {
-            return Ok(());
+        if let Some(job) = jobs.get_opt(project_name).await?
+            && let Some(job_status) = job.status
+        {
+            return Ok(Self::get_job_state_from_status(job_status));
         }
 
         let job = Job {
@@ -190,8 +238,8 @@ impl ProjectPuller {
         };
 
         match jobs.create(&PostParams::default(), &job).await {
-            Ok(_) => Ok(()),
-            Err(kube::Error::Api(response)) if response.code == 409 => Ok(()),
+            Ok(_) => Ok(PullState::Pulling),
+            Err(kube::Error::Api(response)) if response.code == 409 => Ok(PullState::Failed),
             Err(error) => Err(error.into()),
         }
     }

@@ -24,7 +24,8 @@ pub async fn reconcile(
     let owner_reference = project
         .controller_owner_ref(&())
         .expect("Project must have a UID");
-    ctx.project_puller
+    let project_status = ctx
+        .project_puller
         .pull(
             project.spec.clone(),
             &project_name,
