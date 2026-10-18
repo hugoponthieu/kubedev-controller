@@ -1,3 +1,4 @@
+use clap::Parser;
 use futures::StreamExt;
 use k8s_openapi::api::{
     apps::v1::Deployment,
@@ -6,6 +7,7 @@ use k8s_openapi::api::{
 };
 use kube::{Api, Client, runtime::controller::Controller};
 use kubedev_controller::{
+    config::Config,
     project,
     reconcile::{error_policy, reconcile},
     state::ControllerState,
@@ -15,13 +17,14 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), kube::Error> {
+    let config = Config::parse();
     let client = Client::try_default().await?;
     let project = Api::<Project>::all(client.clone());
     let jobs = Api::<Job>::all(client.clone());
     let pvcs = Api::<PersistentVolumeClaim>::all(client.clone());
     let deployments = Api::<Deployment>::all(client.clone());
     let services = Api::<Service>::all(client.clone());
-    let controller_state = Arc::new(ControllerState::new(&client));
+    let controller_state = Arc::new(ControllerState::new(&client, config));
 
     Controller::new(project.clone(), Default::default())
         .owns(jobs, Default::default())

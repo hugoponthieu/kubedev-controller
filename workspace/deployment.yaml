@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: home-dev-container
+  name: home-dev-container
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: home-dev-container
+  template:
+    metadata:
+      labels:
+        app: home-dev-container
+    spec:
+      containers:
+        - image: zot.zot.svc.cluster.local:5000/test:0.0.1 
+          name: home-dev-container
+          env:
+            - name: BUILDKIT_HOST
+              value: tcp://buildkitd.buildkit.svc.cluster.local:1234
+          ports:
+            - containerPort: 22
+              name: ssh
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: home-dev-container
+  annotations:
+    tailscale.com/hostname: home-dev-container
+    tailscale.com/tags: tag:k8s
+spec:
+  type: LoadBalancer
+  loadBalancerClass: tailscale
+  selector:
+    app: home-dev-container
+  ports:
+    - name: ssh
+      protocol: TCP
+      port: 22
+      targetPort: ssh

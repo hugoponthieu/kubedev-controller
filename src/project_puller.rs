@@ -18,45 +18,13 @@ use kube::{
 };
 use std::collections::BTreeMap;
 
-use crate::project::ProjectSpec;
+use crate::{config::Config, project::ProjectSpec};
 
 pub struct ProjectPuller {
     client: Client,
+    config: Config,
 }
 
-const SCRIPT: &str = r#"
-: "${REPOSITORY_URL:?REPOSITORY_URL is required}"
-
-REVISION="${REVISION:-main}"
-TARGET_DIR="${TARGET_DIR:-/workspace/repository}"
-
-mkdir -p "$(dirname "$TARGET_DIR")"
-
-if [ -d "$TARGET_DIR/.git" ]; then
-  echo "Updating existing repository"
-  git -C "$TARGET_DIR" remote set-url origin "$REPOSITORY_URL"
-else
-  echo "Initializing repository"
-  rm -rf "$TARGET_DIR"
-  mkdir -p "$TARGET_DIR"
-  git -C "$TARGET_DIR" init
-  git -C "$TARGET_DIR" remote add origin "$REPOSITORY_URL"
-fi
-
-git -C "$TARGET_DIR" fetch --depth=1 origin "$REVISION"
-git -C "$TARGET_DIR" checkout --detach --force FETCH_HEAD
-git -C "$TARGET_DIR" clean -ffd
-
-COMMIT_SHA="$(git -C "$TARGET_DIR" rev-parse HEAD)"
-chown -R 1000:1000 "$TARGET_DIR"
-printf '%s\n' "$COMMIT_SHA" > "$TARGET_DIR/.clone-complete.tmp"
-chown 1000:1000 "$TARGET_DIR/.clone-complete.tmp"
-mv "$TARGET_DIR/.clone-complete.tmp" "$TARGET_DIR/.clone-complete"
-
-echo "Repository ready at commit $COMMIT_SHA"
-"#;
-
-const WORKSPACE_IMAGE: &str = "hugo08/home-dev-container:0.0.3";
 const WAIT_FOR_PROJECT_SCRIPT: &str = r#"
 for attempt in $(seq 1 150); do
   if [ -s /workspace/repository/.clone-complete ]; then
@@ -80,8 +48,8 @@ pub enum ProjectPullerError {
 }
 
 impl ProjectPuller {
-    pub fn new(client: Client) -> Self {
-        Self { client }
+    pub fn new(client: Client, config: Config) -> Self {
+        Self { client, config }
     }
 
     pub async fn pull(
@@ -176,10 +144,9 @@ impl ProjectPuller {
                     spec: Some(PodSpec {
                         restart_policy: Some("Never".to_string()),
                         containers: vec![Container {
-                            image: Some("alpine/git:latest".to_string()),
+                            image: Some(self.config.project_puller_image()),
+                            image_pull_policy: Some("IfNotPresent".to_string()),
                             name: "puller".to_string(),
-                            command: Some(vec!["/bin/sh".to_string()]),
-                            args: Some(vec!["-ec".to_string(), SCRIPT.to_string()]),
                             env: Some(vec![
                                 EnvVar {
                                     name: "REPOSITORY_URL".to_string(),
@@ -276,7 +243,7 @@ impl ProjectPuller {
                     spec: Some(PodSpec {
                         init_containers: Some(vec![Container {
                             name: "wait-for-project".to_string(),
-                            image: Some("alpine/git:latest".to_string()),
+                            image: Some(self.config.git_image()),
                             command: Some(vec!["/bin/sh".to_string()]),
                             args: Some(vec![
                                 "-ec".to_string(),
@@ -287,7 +254,7 @@ impl ProjectPuller {
                         }]),
                         containers: vec![Container {
                             name: "workspace".to_string(),
-                            image: Some(WORKSPACE_IMAGE.to_string()),
+                            image: Some(self.config.workspace_image()),
                             image_pull_policy: Some("IfNotPresent".to_string()),
                             env: Some(vec![EnvVar {
                                 name: "BUILDKIT_HOST".to_string(),
@@ -302,7 +269,6 @@ impl ProjectPuller {
                                 protocol: Some("TCP".to_string()),
                                 ..Default::default()
                             }]),
-                            working_dir: Some("/workspace/repository".to_string()),
                             volume_mounts: Some(vec![workspace_mount]),
                             ..Default::default()
                         }],
