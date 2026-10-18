@@ -1,0 +1,52 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: projects.kube.dev
+spec:
+  group: kube.dev
+  names:
+    kind: Project
+    plural: projects
+    singular: project
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.pull_state
+      name: Status
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for ProjectSpec via `CustomResource`
+        properties:
+          spec:
+            properties:
+              project_url:
+                type: string
+              revision:
+                type: string
+            required:
+            - project_url
+            - revision
+            type: object
+          status:
+            nullable: true
+            properties:
+              pull_state:
+                enum:
+                - Pulling
+                - Pulled
+                - Failed
+                - Unknown
+                type: string
+            required:
+            - pull_state
+            type: object
+        required:
+        - spec
+        title: Project
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

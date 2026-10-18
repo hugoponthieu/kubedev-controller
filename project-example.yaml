@@ -1,4 +1,4 @@
-apiVersion: kube.rs/v1
+apiVersion: kube.dev/v1
 kind: Project
 metadata:
   name: mon-projet

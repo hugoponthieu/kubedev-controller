@@ -1,0 +1,7 @@
+project-puller/
+target/
+workspace/
+.git/
+.gitignore/
+manifests/
+Dockerfile

@@ -3,7 +3,7 @@ use kube::CustomResource;
 use schemars::JsonSchema;
 
 #[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema, Default)]
-#[kube(kind = "Project", group = "kube.rs", version = "v1", namespaced, status = ProjectStatus,
+#[kube(kind = "Project", group = "kube.dev", version = "v1", namespaced, status = ProjectStatus,
       printcolumn(
           name = "Status",
           type_ = "string",
