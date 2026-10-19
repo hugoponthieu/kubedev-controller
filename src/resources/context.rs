@@ -58,14 +58,17 @@ pub struct ResourceNames {
     pub pvc: String,
     pub pull_job: String,
     pub deployment: String,
+    pub service: String,
 }
 
 impl ResourceNames {
     pub fn for_project(project_name: &str) -> Self {
+        let workspace_name = format!("{project_name}-workspace");
         Self {
-            pvc: format!("{project_name}-workspace"),
+            pvc: workspace_name.clone(),
             pull_job: project_name.to_string(),
-            deployment: format!("{project_name}-workspace"),
+            deployment: workspace_name.clone(),
+            service: workspace_name,
         }
     }
 }
