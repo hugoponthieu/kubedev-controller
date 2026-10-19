@@ -12,6 +12,7 @@ pub fn build_pvc(ctx: BuildContext<'_>) -> PersistentVolumeClaim {
     PersistentVolumeClaim {
         metadata: ObjectMeta {
             name: Some(ctx.names.pvc.clone()),
+            labels: Some(ctx.labels.to_map()),
             owner_references: Some(vec![ctx.owner_references.clone()]),
             ..Default::default()
         },

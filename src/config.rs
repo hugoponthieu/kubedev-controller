@@ -3,18 +3,10 @@ use clap::Parser;
 #[derive(Clone, Debug, Parser)]
 #[command(name = "kubedev-controller")]
 pub struct Config {
-    #[arg(
-        long,
-        env = "KUBEDEV_PROJECT_PULLER_VERSION",
-        default_value = "0.0.1"
-    )]
+    #[arg(long, env = "KUBEDEV_PROJECT_PULLER_VERSION", default_value = "0.0.1")]
     pub project_puller_version: String,
 
-    #[arg(
-        long,
-        env = "KUBEDEV_WORKSPACE_VERSION",
-        default_value = "0.0.4"
-    )]
+    #[arg(long, env = "KUBEDEV_WORKSPACE_VERSION", default_value = "0.0.4")]
     pub workspace_version: String,
 
     #[arg(long, env = "KUBEDEV_GIT_VERSION", default_value = "latest")]

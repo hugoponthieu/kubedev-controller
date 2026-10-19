@@ -13,11 +13,16 @@ pub fn build_pull_job(ctx: BuildContext<'_>) -> Job {
     Job {
         metadata: ObjectMeta {
             name: Some(ctx.project_name.to_string()),
+            labels: Some(ctx.labels.to_map()),
             owner_references: Some(vec![ctx.owner_references.clone()]),
             ..Default::default()
         },
         spec: Some(JobSpec {
             template: PodTemplateSpec {
+                metadata: Some(ObjectMeta {
+                    labels: Some(ctx.labels.to_map()),
+                    ..Default::default()
+                }),
                 spec: Some(PodSpec {
                     restart_policy: Some("Never".to_string()),
                     containers: vec![Container {
