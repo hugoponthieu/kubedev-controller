@@ -32,7 +32,7 @@ pub async fn reconcile(
             project.spec.clone(),
             &project_name,
             &namespace,
-            owner_reference,
+            &owner_reference,
         )
         .await
         .map_err(ReconcileError::PullProject)?;
