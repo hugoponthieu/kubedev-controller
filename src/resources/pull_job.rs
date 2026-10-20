@@ -9,7 +9,7 @@ use kube::api::ObjectMeta;
 
 use crate::resources::context::BuildContext;
 
-pub fn build_pull_job(ctx: BuildContext<'_>) -> Job {
+pub fn build_pull_job(ctx: &BuildContext<'_>) -> Job {
     Job {
         metadata: ObjectMeta {
             name: Some(ctx.project_name.to_string()),
@@ -26,7 +26,7 @@ pub fn build_pull_job(ctx: BuildContext<'_>) -> Job {
                 spec: Some(PodSpec {
                     restart_policy: Some("Never".to_string()),
                     containers: vec![Container {
-                        image: Some(ctx.config.project_puller_image()),
+                        image: Some(ctx.images.project_puller.clone()),
                         image_pull_policy: Some("IfNotPresent".to_string()),
                         name: "puller".to_string(),
                         env: Some(vec![
@@ -57,7 +57,7 @@ pub fn build_pull_job(ctx: BuildContext<'_>) -> Job {
                     volumes: Some(vec![Volume {
                         name: "workspace".to_string(),
                         persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
-                            claim_name: ctx.names.pvc,
+                            claim_name: ctx.names.pvc.clone(),
                             read_only: Some(false),
                         }),
                         ..Default::default()

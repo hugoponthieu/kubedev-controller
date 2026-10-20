@@ -12,7 +12,7 @@ use kube::api::ObjectMeta;
 
 use crate::resources::context::BuildContext;
 
-pub fn build_deployment(ctx: BuildContext<'_>) -> Deployment {
+pub fn build_deployment(ctx: &BuildContext<'_>) -> Deployment {
     let labels = ctx.labels.to_map();
 
     let workspace_mount = VolumeMount {
@@ -43,7 +43,7 @@ pub fn build_deployment(ctx: BuildContext<'_>) -> Deployment {
                 spec: Some(PodSpec {
                     init_containers: Some(vec![Container {
                         name: "wait-for-project".to_string(),
-                        image: Some(ctx.config.git_image()),
+                        image: Some(ctx.images.git.clone()),
                         command: Some(vec!["/bin/sh".to_string()]),
                         args: Some(vec!["-ec".to_string(), WAIT_FOR_PROJECT_SCRIPT.to_string()]),
                         volume_mounts: Some(vec![workspace_mount.clone()]),
@@ -51,7 +51,7 @@ pub fn build_deployment(ctx: BuildContext<'_>) -> Deployment {
                     }]),
                     containers: vec![Container {
                         name: "workspace".to_string(),
-                        image: Some(ctx.config.workspace_image()),
+                        image: Some(ctx.images.workspace.clone()),
                         image_pull_policy: Some("IfNotPresent".to_string()),
                         env: Some(vec![EnvVar {
                             name: "BUILDKIT_HOST".to_string(),

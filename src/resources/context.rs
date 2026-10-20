@@ -2,13 +2,13 @@ use std::collections::BTreeMap;
 
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
 
-use crate::{config::Config, project::ProjectSpec};
+use crate::project::ProjectSpec;
 
 pub struct BuildContext<'a> {
     pub project_name: &'a str,
     pub project_spec: &'a ProjectSpec,
     pub owner_references: &'a OwnerReference,
-    pub config: &'a Config,
+    pub images: &'a ContainerImages,
     pub names: ResourceNames,
     pub labels: ResourceLabels,
 }
@@ -18,13 +18,13 @@ impl<'a> BuildContext<'a> {
         project_name: &'a str,
         project_spec: &'a ProjectSpec,
         owner_references: &'a OwnerReference,
-        config: &'a Config,
+        images: &'a ContainerImages,
     ) -> Self {
         Self {
             project_name,
             project_spec,
             owner_references,
-            config,
+            images,
             names: ResourceNames::for_project(project_name),
             labels: ResourceLabels::for_project(project_name),
         }
@@ -52,6 +52,12 @@ impl ResourceLabels {
     pub fn to_map(&self) -> BTreeMap<String, String> {
         self.0.clone()
     }
+}
+
+pub struct ContainerImages {
+    pub project_puller: String,
+    pub workspace: String,
+    pub git: String,
 }
 
 pub struct ResourceNames {

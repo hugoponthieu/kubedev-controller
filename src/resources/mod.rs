@@ -1,5 +1,5 @@
-mod context;
-mod deployment;
-mod pull_job;
-mod pvc;
-mod service;
+pub mod context;
+pub mod deployment;
+pub mod pull_job;
+pub mod pvc;
+pub mod service;

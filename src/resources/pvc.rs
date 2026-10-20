@@ -8,7 +8,7 @@ use kube::api::ObjectMeta;
 
 use crate::resources::context::BuildContext;
 
-pub fn build_pvc(ctx: BuildContext<'_>) -> PersistentVolumeClaim {
+pub fn build_pvc(ctx: &BuildContext<'_>) -> PersistentVolumeClaim {
     PersistentVolumeClaim {
         metadata: ObjectMeta {
             name: Some(ctx.names.pvc.clone()),

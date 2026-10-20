@@ -8,7 +8,7 @@ use kube::api::ObjectMeta;
 
 use crate::resources::context::BuildContext;
 
-pub fn build_service(ctx: BuildContext<'_>) -> Service {
+pub fn build_service(ctx: &BuildContext<'_>) -> Service {
     Service {
         metadata: ObjectMeta {
             name: Some(ctx.names.service.clone()),
