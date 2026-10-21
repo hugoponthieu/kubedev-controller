@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::OwnerReference;
 
-use crate::project::ProjectSpec;
+use crate::{config::Config, project::ProjectSpec};
 
 pub struct BuildContext<'a> {
     pub project_name: &'a str,
@@ -58,6 +58,16 @@ pub struct ContainerImages {
     pub project_puller: String,
     pub workspace: String,
     pub git: String,
+}
+
+impl From<&Config> for ContainerImages {
+    fn from(config: &Config) -> Self {
+        Self {
+            project_puller: config.project_puller_image(),
+            workspace: config.workspace_image(),
+            git: config.git_image(),
+        }
+    }
 }
 
 pub struct ResourceNames {

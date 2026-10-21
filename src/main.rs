@@ -1,44 +1,23 @@
 use clap::Parser;
-use futures::StreamExt;
-use k8s_openapi::api::{
-    apps::v1::Deployment,
-    batch::v1::Job,
-    core::v1::{PersistentVolumeClaim, Service},
-};
-use kube::{Api, Client, runtime::controller::Controller};
 use kubedev_controller::{
     config::Config,
-    project,
-    reconcile::{error_policy, reconcile},
-    state::ControllerState,
+    controller::{StartControllerError, start_controller},
+    telemetry::{self, TelemetryError},
 };
-use project::Project;
-use std::sync::Arc;
+
+#[derive(thiserror::Error, Debug)]
+pub enum ControllerError {
+    #[error("{0}")]
+    StartController(#[from] StartControllerError),
+    #[error("{0}")]
+    Telemetry(#[from] TelemetryError),
+}
 
 #[tokio::main]
-async fn main() -> Result<(), kube::Error> {
+async fn main() -> Result<(), ControllerError> {
     let config = Config::parse();
-    let client = Client::try_default().await?;
-    let project = Api::<Project>::all(client.clone());
-    let jobs = Api::<Job>::all(client.clone());
-    let pvcs = Api::<PersistentVolumeClaim>::all(client.clone());
-    let deployments = Api::<Deployment>::all(client.clone());
-    let services = Api::<Service>::all(client.clone());
-    let controller_state = Arc::new(ControllerState::new(&client, config));
-
-    Controller::new(project.clone(), Default::default())
-        .owns(jobs, Default::default())
-        .owns(pvcs, Default::default())
-        .owns(deployments, Default::default())
-        .owns(services, Default::default())
-        .run(reconcile, error_policy, controller_state)
-        .for_each(|result| async move {
-            match result {
-                Ok(_) => println!("reconciliation succeeded"),
-                Err(error) => eprintln!("controller error: {error:?}"),
-            }
-        })
-        .await;
+    telemetry::init(&config.telemetry)?;
+    start_controller(&config).await?;
 
     Ok(())
 }

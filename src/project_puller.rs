@@ -35,14 +35,10 @@ pub enum ProjectPullerError {
 }
 
 impl ProjectPuller {
-    pub fn new(client: Client, config: Config) -> Self {
+    pub fn new(client: Client, images: impl Into<ContainerImages>) -> Self {
         Self {
             client,
-            images: ContainerImages {
-                project_puller: config.project_puller_image(),
-                workspace: config.workspace_image(),
-                git: config.git_image(),
-            },
+            images: images.into(),
         }
     }
 
