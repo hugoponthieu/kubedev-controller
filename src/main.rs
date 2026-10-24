@@ -4,6 +4,7 @@ use kubedev_controller::{
     controller::{StartControllerError, start_controller},
     telemetry::{self, TelemetryError},
 };
+use tracing::error;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ControllerError {
@@ -17,7 +18,14 @@ pub enum ControllerError {
 async fn main() -> Result<(), ControllerError> {
     let config = Config::parse();
     telemetry::init(&config.telemetry)?;
-    start_controller(&config).await?;
+    if let Err(err) = start_controller(&config).await {
+        error!(
+            event = "controller.failed",
+            error = %err,
+            "Controller stopped with an error"
+        );
+        return Err(err.into());
+    }
 
     Ok(())
 }
