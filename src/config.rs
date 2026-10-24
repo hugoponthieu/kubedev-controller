@@ -26,6 +26,12 @@ pub struct TelemetryConfig {
     pub log_filter: String,
     #[arg(long, env = "KUBEDEV_LOG_FORMAT", value_enum, default_value_t)]
     pub log_format: LogFormat,
+    #[arg(
+        long,
+        env = "OPENTELEMETRY_ENDPOINT_URL",
+        default_value = "http://localhost:4317"
+    )]
+    pub opentelemetry_endpoint_url: String,
 }
 
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]

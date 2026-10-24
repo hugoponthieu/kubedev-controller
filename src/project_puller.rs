@@ -12,7 +12,6 @@ use kube::{
 };
 
 use crate::{
-    config::Config,
     project::{Project, ProjectSpec, ProjectStatus, PullState},
     resources::{
         context::{BuildContext, ContainerImages},
@@ -42,6 +41,12 @@ impl ProjectPuller {
         }
     }
 
+    #[tracing::instrument(
+        name = "kubernetes.set_status",
+        level = "info",
+        skip_all,
+        fields(resource_kind = "Project", operation = "patch_status")
+    )]
     pub async fn set_project_status(
         &self,
         project_name: &str,
@@ -87,6 +92,12 @@ impl ProjectPuller {
         Ok(project_status)
     }
 
+    #[tracing::instrument(
+        name = "kubernetes.apply",
+        level = "info",
+        skip_all,
+        fields(resource_kind = "PersistentVolumeClaim", operation = "apply")
+    )]
     async fn ensure_pvc(
         &self,
         namespace: &str,
@@ -124,6 +135,12 @@ impl ProjectPuller {
         }
     }
 
+    #[tracing::instrument(
+        name = "kubernetes.apply",
+        level = "info",
+        skip_all,
+        fields(resource_kind = "Job", operation = "apply")
+    )]
     async fn ensure_job(
         &self,
         namespace: &str,
@@ -145,6 +162,12 @@ impl ProjectPuller {
         }
     }
 
+    #[tracing::instrument(
+        name = "kubernetes.apply",
+        level = "info",
+        skip_all,
+        fields(resource_kind = "Deployment", operation = "apply")
+    )]
     async fn ensure_workspace(
         &self,
         namespace: &str,
@@ -164,6 +187,12 @@ impl ProjectPuller {
         Ok(())
     }
 
+    #[tracing::instrument(
+        name = "kubernetes.apply",
+        level = "info",
+        skip_all,
+        fields(resource_kind = "Service", operation = "apply")
+    )]
     async fn ensure_workspace_service(
         &self,
         namespace: &str,

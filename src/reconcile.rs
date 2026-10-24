@@ -2,6 +2,7 @@ use kube::runtime::controller::Action;
 use kube::{Resource, ResourceExt};
 use std::sync::Arc;
 use std::time::Duration;
+use tracing::{info, instrument};
 
 use crate::project::Project;
 use crate::project_puller::ProjectPullerError;
@@ -17,6 +18,10 @@ pub enum ReconcileError {
     OwnerReference,
 }
 
+#[instrument(
+    skip(ctx, project),
+    fields(project_name = %project.name_any())
+)]
 pub async fn reconcile(
     project: Arc<Project>,
     ctx: Arc<ControllerState>,
@@ -36,15 +41,19 @@ pub async fn reconcile(
         )
         .await
         .map_err(ReconcileError::PullProject)?;
-    println!("reconcile request: {}", project.name_any());
+
+    info!(event = "reconciliation.completed",
+        project_name = %project_name, 
+        "Reconciliation completed");
     Ok(Action::await_change())
 }
 
 pub fn error_policy(
-    _object: Arc<Project>,
+    _project: Arc<Project>,
     err: &ReconcileError,
     _ctx: Arc<ControllerState>,
 ) -> Action {
-    println!("reconcile failed: {}", err);
-    Action::requeue(Duration::from_secs(5))
+    let requeue_after_seconds = 5_u64;
+    info!(event = "reconciliation.failed",error = %err,requeue_after_seconds = requeue_after_seconds, "Failed to reconcile; retry scheduled");
+    Action::requeue(Duration::from_secs(requeue_after_seconds))
 }
