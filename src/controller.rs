@@ -36,12 +36,7 @@ pub async fn start_controller(config: &Config) -> Result<(), StartControllerErro
         .owns(deployments, Default::default())
         .owns(services, Default::default())
         .run(reconcile, error_policy, controller_state)
-        .for_each(|result| async move {
-            match result {
-                Ok(_) => println!("reconciliation succeeded"),
-                Err(error) => eprintln!("controller error: {error:?}"),
-            }
-        })
+        .for_each(|_| async move {})
         .await;
     Ok(())
 }
