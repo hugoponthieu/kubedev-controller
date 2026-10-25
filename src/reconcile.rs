@@ -1,7 +1,7 @@
 use kube::runtime::controller::Action;
 use kube::{Resource, ResourceExt};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tracing::{Span, error, info, instrument};
 
 use crate::project::Project;
@@ -40,7 +40,9 @@ pub async fn reconcile(
     project: Arc<Project>,
     ctx: Arc<ControllerState>,
 ) -> Result<Action, ReconcileError> {
+    let started_at = Instant::now();
     let result = reconcile_project(&project, &ctx).await;
+    let duration_seconds = started_at.elapsed().as_secs_f64();
     let span = Span::current();
 
     match &result {
@@ -48,6 +50,7 @@ pub async fn reconcile(
             span.record("result", "success");
             info!(
                 event = "reconciliation.completed",
+                duration_seconds = duration_seconds,
                 "Reconciliation completed"
             );
         }
@@ -56,6 +59,7 @@ pub async fn reconcile(
             span.record("reason", err.reason());
             error!(
                 event = "reconciliation.failed",
+                duration_seconds = duration_seconds,
                 reason = err.reason(),
                 error = %err,
                 "Failed to reconcile"
