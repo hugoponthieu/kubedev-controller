@@ -10,7 +10,7 @@ use kube::{
     Api, Client,
     runtime::{Controller, controller::Error as ControllerRuntimeError},
 };
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 use crate::{
     config::Config,
@@ -34,11 +34,13 @@ pub async fn start_controller(config: &Config) -> Result<(), StartControllerErro
     let services = Api::<Service>::all(client.clone());
     let controller_state = Arc::new(ControllerState::new(&client, config));
 
+    info!(event = "controller.start", "controller starting");
     Controller::new(project.clone(), Default::default())
         .owns(jobs, Default::default())
         .owns(pvcs, Default::default())
         .owns(deployments, Default::default())
         .owns(services, Default::default())
+        .shutdown_on_signal()
         .run(reconcile, error_policy, controller_state)
         .for_each(|result| async move {
             match result {
@@ -56,5 +58,6 @@ pub async fn start_controller(config: &Config) -> Result<(), StartControllerErro
             }
         })
         .await;
+    info!(event = "controller.stop", "controller stopped");
     Ok(())
 }
