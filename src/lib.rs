@@ -1,5 +1,7 @@
 pub mod config;
 pub mod controller;
+pub mod health;
+pub mod http;
 pub mod project;
 pub mod project_puller;
 pub mod reconcile;

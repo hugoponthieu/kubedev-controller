@@ -17,8 +17,28 @@ spec:
     spec:
       serviceAccountName: kubedev-controller
       containers:
-        - image: hugo08/kubedev-controller:0.0.2
+        - image: hugo08/kubedev-controller:0.0.3
           name: kubedev-controller
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 1
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false

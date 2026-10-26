@@ -12,4 +12,9 @@ FROM gcr.io/distroless/cc-debian13:nonroot AS runtime
 
 COPY --from=builder /controller/target/release/kubedev-controller / 
 
+ENV HOST=0.0.0.0 \
+  PORT=8080
+
+EXPOSE 8080
+
 ENTRYPOINT [ "/kubedev-controller" ]

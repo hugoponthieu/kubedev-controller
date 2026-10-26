@@ -14,6 +14,17 @@ pub struct Config {
 
     #[command(flatten)]
     pub telemetry: TelemetryConfig,
+
+    #[command(flatten)]
+    pub server: HttpServerConfig,
+}
+
+#[derive(Clone, Debug, Args)]
+pub struct HttpServerConfig {
+    #[arg(long, env = "PORT", default_value = "8080")]
+    pub port: u16,
+    #[arg(long, env = "HOST", default_value = "0.0.0.0")]
+    pub host: String,
 }
 
 #[derive(Clone, Debug, Args)]

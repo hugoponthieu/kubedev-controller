@@ -14,6 +14,7 @@ use tracing::{error, info, warn};
 
 use crate::{
     config::Config,
+    health::HealthState,
     project::Project,
     reconcile::{error_policy, reconcile},
     state::ControllerState,
@@ -25,8 +26,12 @@ pub enum StartControllerError {
     Kubernetes(#[from] kube::Error),
 }
 
-pub async fn start_controller(config: &Config) -> Result<(), StartControllerError> {
+pub async fn start_controller(
+    config: &Config,
+    health: HealthState,
+) -> Result<(), StartControllerError> {
     let client = Client::try_default().await?;
+    health.mark_ready();
     let project = Api::<Project>::all(client.clone());
     let jobs = Api::<Job>::all(client.clone());
     let pvcs = Api::<PersistentVolumeClaim>::all(client.clone());
@@ -59,5 +64,6 @@ pub async fn start_controller(config: &Config) -> Result<(), StartControllerErro
         })
         .await;
     info!(event = "controller.stop", "controller stopped");
+    health.mark_not_ready();
     Ok(())
 }
